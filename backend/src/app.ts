@@ -5,7 +5,6 @@ import 'dotenv/config'
 import express, { json, urlencoded } from 'express'
 import mongoose from 'mongoose'
 import path from 'path'
-import csurf from 'csurf'
 import rateLimit from 'express-rate-limit'
 
 import { DB_ADDRESS } from './config'
@@ -48,14 +47,6 @@ app.use(
     ['/auth/login', '/auth/register', '/auth/csrf-token', '/orders', '/users'],
     publicLimiter
 )
-
-const csrfMiddleware = csurf({ cookie: true })
-
-app.use(csrfMiddleware)
-
-app.get('/auth/csrf-token', (req, res) => {
-    res.json({ csrfToken: req.csrfToken() })
-})
 
 app.options('*', cors())
 app.use(routes)

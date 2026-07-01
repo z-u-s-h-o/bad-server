@@ -101,12 +101,10 @@ export const getOrders = async (
             if (!Number.isNaN(val)) {
                 filters.totalAmount = { ...filters.totalAmount, $gte: val }
             } else {
-                return res
-                    .status(400)
-                    .json({
-                        success: false,
-                        message: 'totalAmountFrom должно быть числом',
-                    })
+                return res.status(400).json({
+                    success: false,
+                    message: 'totalAmountFrom должно быть числом',
+                })
             }
         }
         if (totalAmountTo) {
@@ -114,12 +112,10 @@ export const getOrders = async (
             if (!Number.isNaN(val)) {
                 filters.totalAmount = { ...filters.totalAmount, $lte: val }
             } else {
-                return res
-                    .status(400)
-                    .json({
-                        success: false,
-                        message: 'totalAmountTo должно быть числом',
-                    })
+                return res.status(400).json({
+                    success: false,
+                    message: 'totalAmountTo должно быть числом',
+                })
             }
         }
 
@@ -128,12 +124,10 @@ export const getOrders = async (
             if (!isNaN(date.getTime())) {
                 filters.createdAt = { ...filters.createdAt, $gte: date }
             } else {
-                return res
-                    .status(400)
-                    .json({
-                        success: false,
-                        message: 'orderDateFrom должна быть валидной датой',
-                    })
+                return res.status(400).json({
+                    success: false,
+                    message: 'orderDateFrom должна быть валидной датой',
+                })
             }
         }
         if (orderDateTo) {
@@ -141,12 +135,10 @@ export const getOrders = async (
             if (!isNaN(date.getTime())) {
                 filters.createdAt = { ...filters.createdAt, $lte: date }
             } else {
-                return res
-                    .status(400)
-                    .json({
-                        success: false,
-                        message: 'orderDateTo должна быть валидной датой',
-                    })
+                return res.status(400).json({
+                    success: false,
+                    message: 'orderDateTo должна быть валидной датой',
+                })
             }
         }
 
