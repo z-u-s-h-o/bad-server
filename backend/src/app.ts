@@ -5,6 +5,7 @@ import 'dotenv/config'
 import express, { json, urlencoded } from 'express'
 import mongoose from 'mongoose'
 import path from 'path'
+import csurf from 'csurf'
 import { DB_ADDRESS } from './config'
 import errorHandler from './middlewares/error-handler'
 import serveStatic from './middlewares/serverStatic'
@@ -15,6 +16,8 @@ const app = express()
 
 app.use(cookieParser())
 
+const csrfMiddleware = csurf({ cookie: true })
+
 app.use(cors())
 // app.use(cors({ origin: ORIGIN_ALLOW, credentials: true }));
 // app.use(express.static(path.join(__dirname, 'public')));
@@ -23,6 +26,12 @@ app.use(serveStatic(path.join(__dirname, 'public')))
 
 app.use(urlencoded({ extended: true }))
 app.use(json())
+
+app.use(csrfMiddleware)
+
+app.get('/auth/csrf-token', (req, res) => {
+  res.json({ csrfToken: req.csrfToken() })
+})
 
 app.options('*', cors())
 app.use(routes)
