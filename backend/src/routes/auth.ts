@@ -15,7 +15,14 @@ const authRouter = Router()
 
 authRouter.get('/csrf-token', (req, res) => {
     const csrfToken = crypto.randomBytes(32).toString('hex')
-    return res.json({ csrfToken })
+
+    res.cookie('_csrf', csrfToken, {
+        httpOnly: false,
+        maxAge: 60 * 60 * 1000,
+        sameSite: 'lax',
+    })
+
+    return res.json({ success: true })
 })
 authRouter.get('/user', auth, getCurrentUser)
 authRouter.patch('/me', auth, updateCurrentUser)
