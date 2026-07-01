@@ -32,21 +32,9 @@ export const getOrders = async (
     next: NextFunction
 ) => {
     try {
-        const user = res.locals.user
-        if (
-            !user ||
-            !Array.isArray(user.roles) ||
-            !user.roles.includes(Role.Admin)
-        ) {
-            return res.status(403).json({
-                success: false,
-                message: 'Доступ запрещён: требуется роль администратора',
-            })
-        }
-
         const {
             page = 1,
-            limit: limitRaw = 10,
+            limit: limitRaw,
             sortField = 'createdAt',
             sortOrder = 'desc',
             status,
@@ -57,9 +45,12 @@ export const getOrders = async (
             search,
         } = req.query
 
+        const MAX_LIMIT = 10
+
         const limit = Number.isNaN(Number(limitRaw))
-            ? 10
-            : Math.max(1, Math.min(Number(limitRaw), 100))
+            ? MAX_LIMIT
+            : Math.max(1, Math.min(Number(limitRaw), MAX_LIMIT))
+
         const pageNum = Number.isNaN(Number(page))
             ? 1
             : Math.max(1, Number(page))
@@ -202,7 +193,7 @@ export const getOrders = async (
         aggregatePipeline.push(
             { $sort: sort },
             { $skip: (pageNum - 1) * limit },
-            { $limit: limit },
+            { $limit: limit }, // используем тот же limit
             {
                 $group: {
                     _id: '$_id',
