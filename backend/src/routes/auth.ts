@@ -9,9 +9,14 @@ import {
     updateCurrentUser,
 } from '../controllers/auth'
 import auth from '../middlewares/auth'
+import crypto from 'crypto'
 
 const authRouter = Router()
 
+authRouter.get('/csrf-token', (req, res) => {
+    const csrfToken = crypto.randomBytes(32).toString('hex')
+    return res.json({ csrfToken })
+})
 authRouter.get('/user', auth, getCurrentUser)
 authRouter.patch('/me', auth, updateCurrentUser)
 authRouter.get('/user/roles', auth, getCurrentUserRoles)
