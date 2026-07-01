@@ -16,10 +16,6 @@ import routes from './routes'
 const { PORT = 3000 } = process.env
 const app = express()
 
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok' })
-})
-
 app.use(cookieParser())
 
 const ORIGIN_ALLOW = process.env.CORS_ORIGIN || 'http://localhost:5173'

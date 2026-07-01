@@ -9,6 +9,15 @@ import User from '../models/user'
 // eslint-disable-next-line max-len
 // GET /orders?page=2&limit=5&sort=totalAmount&order=desc&orderDateFrom=2024-07-01&orderDateTo=2024-08-01&status=delivering&totalAmountFrom=100&totalAmountTo=1000&search=%2B1
 
+function sanitizeComment(text: string): string {
+    return text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;')
+}
+
 export const getOrders = async (
     req: Request,
     res: Response,
@@ -17,7 +26,7 @@ export const getOrders = async (
     try {
         const {
             page = 1,
-            limit = 10,
+            limit: limitRaw = 10,
             sortField = 'createdAt',
             sortOrder = 'desc',
             status,
@@ -27,6 +36,29 @@ export const getOrders = async (
             orderDateTo,
             search,
         } = req.query
+
+        const limit = Number.isNaN(Number(limitRaw))
+            ? 10
+            : Math.max(1, Math.min(Number(limitRaw), 10))
+
+        const pageNum = Number.isNaN(Number(page))
+            ? 1
+            : Math.max(1, Number(page))
+
+         const allowedQueryFields = [
+            'page', 'limit', 'sortField', 'sortOrder', 'status',
+            'totalAmountFrom', 'totalAmountTo', 'orderDateFrom',
+            'orderDateTo', 'search'
+        ] as const
+
+        for (const key in req.query) {
+            if (!allowedQueryFields.includes(key as typeof allowedQueryFields[number])) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Недопустимое поле в запросе: ${key}`,
+                })
+            }
+        }
 
         const filters: FilterQuery<Partial<IOrder>> = {}
 
@@ -116,8 +148,8 @@ export const getOrders = async (
 
         aggregatePipeline.push(
             { $sort: sort },
-            { $skip: (Number(page) - 1) * Number(limit) },
-            { $limit: Number(limit) },
+            { $skip: (pageNum  - 1) * limit },
+            { $limit: limit  },
             {
                 $group: {
                     _id: '$_id',
@@ -133,15 +165,15 @@ export const getOrders = async (
 
         const orders = await Order.aggregate(aggregatePipeline)
         const totalOrders = await Order.countDocuments(filters)
-        const totalPages = Math.ceil(totalOrders / Number(limit))
+        const totalPages = Math.ceil(totalOrders / limit)
 
         res.status(200).json({
             orders,
             pagination: {
                 totalOrders,
                 totalPages,
-                currentPage: Number(page),
-                pageSize: Number(limit),
+                currentPage: pageNum,
+                pageSize: limit,
             },
         })
     } catch (error) {
@@ -291,8 +323,10 @@ export const createOrder = async (
         const basket: IProduct[] = []
         const products = await Product.find<IProduct>({})
         const userId = res.locals.user._id
-        const { address, payment, phone, total, email, items, comment } =
+        const { address, payment, phone, total, email, items, comment: rawComment } =
             req.body
+
+        let comment = typeof rawComment === 'string' ? sanitizeComment(rawComment) : rawComment
 
         items.forEach((id: Types.ObjectId) => {
             const product = products.find((p) => p._id.equals(id))
