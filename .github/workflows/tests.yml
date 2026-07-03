@@ -22,7 +22,7 @@ jobs:
         node-version: 18.x
     - name: Get testing lib
       run: set -eu && git clone --depth 1 $REP_TESTS $DIR_TESTS
-    - name: Debug: styles.scss content
+    - name: Debug styles.scss content
       run: cat frontend/src/scss/styles.scss | grep -i variables
     - name: Start project
       run: bash $DIR_TESTS/bin/start_project.sh
