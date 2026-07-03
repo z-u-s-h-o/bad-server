@@ -24,7 +24,7 @@ const ORIGIN_ALLOW = process.env.CORS_ORIGIN || 'http://localhost:5173'
 app.use(
     cors({
         origin: ORIGIN_ALLOW,
-        credentials: true, // критично для CSRF с cookie
+        credentials: true,
         allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token'],
     })
 )

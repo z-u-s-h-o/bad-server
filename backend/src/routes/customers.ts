@@ -6,7 +6,7 @@ import {
     updateCustomer,
 } from '../controllers/customers'
 import auth, { roleGuardMiddleware } from '../middlewares/auth'
-import { Role } from 'models/user'
+import { Role } from '../models/user'
 
 const customerRouter = Router()
 

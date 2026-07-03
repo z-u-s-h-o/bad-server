@@ -10,7 +10,7 @@ import {
 } from '../controllers/auth'
 import auth from '../middlewares/auth'
 import crypto from 'crypto'
-import { authLimiter } from 'middlewares/rate-limit'
+import { authLimiter } from '../middlewares/rate-limit'
 
 const authRouter = Router()
 

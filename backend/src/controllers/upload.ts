@@ -1,7 +1,6 @@
 import { NextFunction, Request, Response } from 'express'
 import { constants } from 'http2'
 import path from 'path'
-import fs from 'fs'
 import sharp from 'sharp'
 import BadRequestError from '../errors/bad-request-error'
 
