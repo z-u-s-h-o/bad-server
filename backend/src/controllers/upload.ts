@@ -4,6 +4,9 @@ import path from 'path'
 import sharp from 'sharp'
 import BadRequestError from '../errors/bad-request-error'
 
+const MIN_SIZE_BYTES = 2 * 1024 // 2 KB
+const MAX_SIZE_BYTES = 10 * 1024 * 1024 // 10 MB
+
 export const uploadFile = async (
     req: Request,
     res: Response,
@@ -11,6 +14,14 @@ export const uploadFile = async (
 ) => {
     if (!req.file) {
         return next(new BadRequestError('Файл не загружен'))
+    }
+
+    if (req.file.size < MIN_SIZE_BYTES || req.file.size > MAX_SIZE_BYTES) {
+        const err = new Error(
+            `Файл недопустимого размера: ${MIN_SIZE_BYTES} байт`
+        )
+        ;(err as any).status = 413
+        return next(err)
     }
 
     try {

@@ -49,15 +49,15 @@ const fileFilter = (
     file: Express.Multer.File,
     cb: FileFilterCallback
 ) => {
-    const MIN_SIZE_BYTES = 2 * 1024 // 2 KB
+    // const MIN_SIZE_BYTES = 2 * 1024 // 2 KB
 
     if (!types.includes(file.mimetype)) {
         return cb(null, false)
     }
 
-    if (file.size < MIN_SIZE_BYTES) {
-        return cb(null, false)
-    }
+    // if (file.size < MIN_SIZE_BYTES) {
+    //     return cb(null, false)
+    // }
 
     return cb(null, true)
 }
