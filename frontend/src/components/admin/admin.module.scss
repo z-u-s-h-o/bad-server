@@ -1,3 +1,6 @@
+@use '../../scss/_variables' as *;
+@use '../../scss/mixins/_index' as mixins;
+
 .admin {
     &__container {
         @include mixins.container(45px, 45px);

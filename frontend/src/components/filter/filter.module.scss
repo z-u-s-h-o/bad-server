@@ -1,3 +1,6 @@
+@use '../../scss/mixins/_index' as mixins;
+@use '../../scss/_variables' as *;
+
 .filter {
     display: grid;
     grid-template-columns: min-content min-content;

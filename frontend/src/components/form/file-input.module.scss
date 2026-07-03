@@ -1,3 +1,6 @@
+@use '../../scss/mixins/_index' as mixins;
+@use '../../scss/_variables' as *;
+
 .form__file {
     opacity: 0;
     height: 0;
