@@ -1,3 +1,6 @@
+@use '../../scss/mixins/_index' as mixins;
+@use '../../scss/_variables' as *;
+
 .basket {
     @include mixins.flex(column);
     gap: 2rem;

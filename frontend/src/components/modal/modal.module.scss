@@ -1,3 +1,6 @@
+@use '../../scss/mixins/_index' as mixins;
+@use '../../scss/_variables' as *;
+
 .modal {
     @include mixins.sublayer;
     height: max-content;

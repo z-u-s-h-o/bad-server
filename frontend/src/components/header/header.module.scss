@@ -1,3 +1,6 @@
+@use '../../scss/_variables' as *;
+@use '../../scss/mixins/_index' as mixins;
+
 .header {
     height: $headerHeight;
     background-color: $primary;

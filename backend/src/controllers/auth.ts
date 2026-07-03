@@ -1,3 +1,4 @@
+import Joi from 'joi'
 import crypto from 'crypto'
 import { NextFunction, Request, Response } from 'express'
 import { constants } from 'http2'
@@ -9,19 +10,35 @@ import ConflictError from '../errors/conflict-error'
 import NotFoundError from '../errors/not-found-error'
 import UnauthorizedError from '../errors/unauthorized-error'
 import User from '../models/user'
+import { authBodySchema, userBodySchema } from '../middlewares/validations'
 
 // POST /auth/login
 const login = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const { email, password } = req.body
+        const { error, value } = authBodySchema.validate(req.body, {
+            abortEarly: false,
+        })
+        if (error) {
+            return res.status(400).json({
+                success: false,
+                message: 'Ошибка валидации данных для входа',
+                details: error.details.map(
+                    (d: Joi.ValidationErrorItem) => d.message
+                ),
+            })
+        }
+        const { email, password } = value
+
         const user = await User.findUserByCredentials(email, password)
         const accessToken = user.generateAccessToken()
         const refreshToken = await user.generateRefreshToken()
+
         res.cookie(
             REFRESH_TOKEN.cookie.name,
             refreshToken,
             REFRESH_TOKEN.cookie.options
         )
+
         return res.json({
             success: true,
             user,
@@ -35,7 +52,20 @@ const login = async (req: Request, res: Response, next: NextFunction) => {
 // POST /auth/register
 const register = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const { email, password, name } = req.body
+        const { error, value } = userBodySchema.validate(req.body, {
+            abortEarly: false,
+        })
+        if (error) {
+            return res.status(400).json({
+                success: false,
+                message: 'Ошибка валидации данных регистрации',
+                details: error.details.map(
+                    (d: Joi.ValidationErrorItem) => d.message
+                ),
+            })
+        }
+        const { email, password, name } = value
+
         const newUser = new User({ email, password, name })
         await newUser.save()
         const accessToken = newUser.generateAccessToken()
@@ -46,6 +76,7 @@ const register = async (req: Request, res: Response, next: NextFunction) => {
             refreshToken,
             REFRESH_TOKEN.cookie.options
         )
+
         return res.status(constants.HTTP_STATUS_CREATED).json({
             success: true,
             user: newUser,
@@ -84,12 +115,7 @@ const getCurrentUser = async (
     }
 }
 
-// Можно лучше: вынести общую логику получения данных из refresh токена
-const deleteRefreshTokenInUser = async (
-    req: Request,
-    _res: Response,
-    _next: NextFunction
-) => {
+const deleteRefreshTokenInUser = async (req: Request) => {
     const { cookies } = req
     const rfTkn = cookies[REFRESH_TOKEN.cookie.name]
 
@@ -101,6 +127,7 @@ const deleteRefreshTokenInUser = async (
         rfTkn,
         REFRESH_TOKEN.secret
     ) as JwtPayload
+
     const user = await User.findOne({
         _id: decodedRefreshTkn._id,
     }).orFail(() => new UnauthorizedError('Пользователь не найден в базе'))
@@ -111,22 +138,22 @@ const deleteRefreshTokenInUser = async (
         .digest('hex')
 
     user.tokens = user.tokens.filter((tokenObj) => tokenObj.token !== rTknHash)
-
     await user.save()
 
     return user
 }
 
-// Реализация удаления токена из базы может отличаться
-// GET  /auth/logout
+// GET /auth/logout
 const logout = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        await deleteRefreshTokenInUser(req, res, next)
+        await deleteRefreshTokenInUser(req)
+
         const expireCookieOptions = {
             ...REFRESH_TOKEN.cookie.options,
             maxAge: -1,
         }
         res.cookie(REFRESH_TOKEN.cookie.name, '', expireCookieOptions)
+
         res.status(200).json({
             success: true,
         })
@@ -135,25 +162,24 @@ const logout = async (req: Request, res: Response, next: NextFunction) => {
     }
 }
 
-// GET  /auth/token
+// GET /auth/token
 const refreshAccessToken = async (
     req: Request,
     res: Response,
     next: NextFunction
 ) => {
     try {
-        const userWithRefreshTkn = await deleteRefreshTokenInUser(
-            req,
-            res,
-            next
-        )
+        const userWithRefreshTkn = await deleteRefreshTokenInUser(req)
+
         const accessToken = await userWithRefreshTkn.generateAccessToken()
         const refreshToken = await userWithRefreshTkn.generateRefreshToken()
+
         res.cookie(
             REFRESH_TOKEN.cookie.name,
             refreshToken,
             REFRESH_TOKEN.cookie.options
         )
+
         return res.json({
             success: true,
             user: userWithRefreshTkn,
@@ -165,21 +191,19 @@ const refreshAccessToken = async (
 }
 
 const getCurrentUserRoles = async (
-    req: Request,
+    _req: Request,
     res: Response,
     next: NextFunction
 ) => {
     const userId = res.locals.user._id
     try {
-        await User.findById(userId, req.body, {
-            new: true,
-        }).orFail(
+        const user = await User.findById(userId).orFail(
             () =>
                 new NotFoundError(
                     'Пользователь по заданному id отсутствует в базе'
                 )
         )
-        res.status(200).json(res.locals.user.roles)
+        res.status(200).json(user.roles)
     } catch (error) {
         next(error)
     }
@@ -194,6 +218,7 @@ const updateCurrentUser = async (
     try {
         const updatedUser = await User.findByIdAndUpdate(userId, req.body, {
             new: true,
+            runValidators: true,
         }).orFail(
             () =>
                 new NotFoundError(

@@ -1,5 +1,5 @@
-@use '../variables' as *;
-@use './container' as mixins;
+@use '../_variables' as *;
+@use './_container' as mixins;
 
 @mixin button($color: $primary, $main: white, $hover: $secondary) {
     padding: 1rem 2rem;

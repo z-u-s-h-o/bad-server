@@ -1,3 +1,6 @@
+@use '../../scss/mixins/_index' as mixins;
+@use '../../scss/_variables' as *;
+
 .gallery {
     @include mixins.container;
     @include mixins.grid(600px, 24px);

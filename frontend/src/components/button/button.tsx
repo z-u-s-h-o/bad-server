@@ -10,7 +10,8 @@ import { LinkProps } from 'react-router-dom'
 import styles from './button.module.scss'
 
 interface ButtonProps
-    extends DetailedHTMLProps<
+    extends
+        DetailedHTMLProps<
             ButtonHTMLAttributes<HTMLButtonElement>,
             HTMLButtonElement
         >,

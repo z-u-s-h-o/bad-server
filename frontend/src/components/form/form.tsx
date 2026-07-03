@@ -7,11 +7,10 @@ import {
 } from 'react'
 import styles from './form.module.scss'
 
-interface FormProps
-    extends DetailedHTMLProps<
-        FormHTMLAttributes<HTMLFormElement>,
-        HTMLFormElement
-    > {
+interface FormProps extends DetailedHTMLProps<
+    FormHTMLAttributes<HTMLFormElement>,
+    HTMLFormElement
+> {
     handleFormSubmit?: (e: SyntheticEvent<HTMLFormElement>) => void
     children: ReactNode
     extraClass?: string

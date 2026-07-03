@@ -1,3 +1,6 @@
+@use '../../scss/mixins/_index' as mixins;
+@use '../../scss/_variables' as *;
+
 .profile {
     &__container {
         @include mixins.container(45px, 45px);

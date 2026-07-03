@@ -5,9 +5,26 @@ import NotFoundError from '../errors/not-found-error'
 import Order, { IOrder } from '../models/order'
 import Product, { IProduct } from '../models/product'
 import User from '../models/user'
+import { orderBodySchema } from '../middlewares/validations'
 
 // eslint-disable-next-line max-len
 // GET /orders?page=2&limit=5&sort=totalAmount&order=desc&orderDateFrom=2024-07-01&orderDateTo=2024-08-01&status=delivering&totalAmountFrom=100&totalAmountTo=1000&search=%2B1
+
+function sanitizeComment(text: string): string {
+    return text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;')
+}
+
+const ALLOWED_SORT_FIELDS = new Set([
+    'createdAt',
+    'totalAmount',
+    'orderNumber',
+    'status',
+]) as Set<'createdAt' | 'totalAmount' | 'orderNumber' | 'status'>
 
 export const getOrders = async (
     req: Request,
@@ -17,7 +34,7 @@ export const getOrders = async (
     try {
         const {
             page = 1,
-            limit = 10,
+            limit: limitRaw,
             sortField = 'createdAt',
             sortOrder = 'desc',
             status,
@@ -28,42 +45,92 @@ export const getOrders = async (
             search,
         } = req.query
 
+        const MAX_LIMIT = 10
+
+        const limit = Number.isNaN(Number(limitRaw))
+            ? MAX_LIMIT
+            : Math.max(1, Math.min(Number(limitRaw), MAX_LIMIT))
+
+        const pageNum = Number.isNaN(Number(page))
+            ? 1
+            : Math.max(1, Number(page))
+
+        const allowedQueryFields = new Set<string>([
+            'page',
+            'limit',
+            'sortField',
+            'sortOrder',
+            'status',
+            'totalAmountFrom',
+            'totalAmountTo',
+            'orderDateFrom',
+            'orderDateTo',
+            'search',
+        ])
+
+        Object.entries(req.query).forEach(([key, _]) => {
+            if (!allowedQueryFields.has(key)) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Недопустимое поле в запросе: ${key}`,
+                })
+            }
+        })
+
         const filters: FilterQuery<Partial<IOrder>> = {}
 
-        if (status) {
-            if (typeof status === 'object') {
-                Object.assign(filters, status)
-            }
-            if (typeof status === 'string') {
-                filters.status = status
-            }
+        if (typeof status === 'string') {
+            filters.status = status
+        } else if (status) {
+            return res.status(400).json({
+                success: false,
+                message: 'Поле "status" должно быть строкой',
+            })
         }
 
         if (totalAmountFrom) {
-            filters.totalAmount = {
-                ...filters.totalAmount,
-                $gte: Number(totalAmountFrom),
+            const val = Number(totalAmountFrom)
+            if (!Number.isNaN(val)) {
+                filters.totalAmount = { ...filters.totalAmount, $gte: val }
+            } else {
+                return res.status(400).json({
+                    success: false,
+                    message: 'totalAmountFrom должно быть числом',
+                })
             }
         }
-
         if (totalAmountTo) {
-            filters.totalAmount = {
-                ...filters.totalAmount,
-                $lte: Number(totalAmountTo),
+            const val = Number(totalAmountTo)
+            if (!Number.isNaN(val)) {
+                filters.totalAmount = { ...filters.totalAmount, $lte: val }
+            } else {
+                return res.status(400).json({
+                    success: false,
+                    message: 'totalAmountTo должно быть числом',
+                })
             }
         }
 
         if (orderDateFrom) {
-            filters.createdAt = {
-                ...filters.createdAt,
-                $gte: new Date(orderDateFrom as string),
+            const date = new Date(orderDateFrom as string)
+            if (!Number.isNaN(date.getTime())) {
+                filters.createdAt = { ...filters.createdAt, $gte: date }
+            } else {
+                return res.status(400).json({
+                    success: false,
+                    message: 'orderDateFrom должна быть валидной датой',
+                })
             }
         }
-
         if (orderDateTo) {
-            filters.createdAt = {
-                ...filters.createdAt,
-                $lte: new Date(orderDateTo as string),
+            const date = new Date(orderDateTo as string)
+            if (!Number.isNaN(date.getTime())) {
+                filters.createdAt = { ...filters.createdAt, $lte: date }
+            } else {
+                return res.status(400).json({
+                    success: false,
+                    message: 'orderDateTo должна быть валидной датой',
+                })
             }
         }
 
@@ -89,35 +156,45 @@ export const getOrders = async (
             { $unwind: '$products' },
         ]
 
+        let searchRegex: RegExp | null = null
         if (search) {
-            const searchRegex = new RegExp(search as string, 'i')
+            try {
+                searchRegex = new RegExp(search as string, 'i')
+            } catch (e) {
+                return res.json({
+                    orders: [],
+                    pagination: {
+                        totalOrders: 0,
+                        totalPages: 0,
+                        currentPage: pageNum,
+                        pageSize: limit,
+                    },
+                })
+            }
             const searchNumber = Number(search)
-
             const searchConditions: any[] = [{ 'products.title': searchRegex }]
-
             if (!Number.isNaN(searchNumber)) {
                 searchConditions.push({ orderNumber: searchNumber })
             }
-
-            aggregatePipeline.push({
-                $match: {
-                    $or: searchConditions,
-                },
-            })
-
+            aggregatePipeline.push({ $match: { $or: searchConditions } })
             filters.$or = searchConditions
         }
 
-        const sort: { [key: string]: any } = {}
-
-        if (sortField && sortOrder) {
-            sort[sortField as string] = sortOrder === 'desc' ? -1 : 1
+        const sortKey = typeof sortField === 'string' ? sortField : 'createdAt'
+        if (!ALLOWED_SORT_FIELDS.has(sortKey as any)) {
+            return res.status(400).json({
+                success: false,
+                message: `Недопустимое поле для сортировки: ${sortKey}`,
+            })
         }
+
+        const sortValue = sortOrder === 'asc' ? 1 : -1
+        const sort: Record<string, 1 | -1> = { [sortKey]: sortValue }
 
         aggregatePipeline.push(
             { $sort: sort },
-            { $skip: (Number(page) - 1) * Number(limit) },
-            { $limit: Number(limit) },
+            { $skip: (pageNum - 1) * limit },
+            { $limit: limit },
             {
                 $group: {
                     _id: '$_id',
@@ -133,15 +210,15 @@ export const getOrders = async (
 
         const orders = await Order.aggregate(aggregatePipeline)
         const totalOrders = await Order.countDocuments(filters)
-        const totalPages = Math.ceil(totalOrders / Number(limit))
+        const totalPages = Math.ceil(totalOrders / limit)
 
         res.status(200).json({
             orders,
             pagination: {
                 totalOrders,
                 totalPages,
-                currentPage: Number(page),
-                pageSize: Number(limit),
+                currentPage: pageNum,
+                pageSize: limit,
             },
         })
     } catch (error) {
@@ -165,14 +242,7 @@ export const getOrdersCurrentUser = async (
         const user = await User.findById(userId)
             .populate({
                 path: 'orders',
-                populate: [
-                    {
-                        path: 'products',
-                    },
-                    {
-                        path: 'customer',
-                    },
-                ],
+                populate: [{ path: 'products' }, { path: 'customer' }],
             })
             .orFail(
                 () =>
@@ -184,24 +254,31 @@ export const getOrdersCurrentUser = async (
         let orders = user.orders as unknown as IOrder[]
 
         if (search) {
-            // если не экранировать то получаем Invalid regular expression: /+1/i: Nothing to repeat
-            const searchRegex = new RegExp(search as string, 'i')
-            const searchNumber = Number(search)
-            const products = await Product.find({ title: searchRegex })
-            const productIds = products.map((product) => product._id)
+            let searchRegex: RegExp | null = null
 
-            orders = orders.filter((order) => {
-                // eslint-disable-next-line max-len
-                const matchesProductTitle = order.products.some((product) =>
-                    productIds.some((id) => id.equals(product._id))
-                )
-                // eslint-disable-next-line max-len
-                const matchesOrderNumber =
-                    !Number.isNaN(searchNumber) &&
-                    order.orderNumber === searchNumber
+            try {
+                searchRegex = new RegExp(search as string, 'i')
+            } catch (e) {
+                searchRegex = null
+            }
 
-                return matchesOrderNumber || matchesProductTitle
-            })
+            if (searchRegex) {
+                const products = await Product.find({ title: searchRegex })
+                const productIds = products.map((product) => product._id)
+
+                orders = orders.filter((order) => {
+                    const matchesProductTitle = order.products.some((product) =>
+                        productIds.some((id) => id.equals(product._id))
+                    )
+
+                    const searchNumber = Number(search)
+                    const matchesOrderNumber =
+                        !Number.isNaN(searchNumber) &&
+                        order.orderNumber === searchNumber
+
+                    return matchesOrderNumber || matchesProductTitle
+                })
+            }
         }
 
         const totalOrders = orders.length
@@ -281,18 +358,40 @@ export const getOrderCurrentUserByNumber = async (
     }
 }
 
-// POST /product
+// POST /order
 export const createOrder = async (
     req: Request,
     res: Response,
     next: NextFunction
 ) => {
     try {
+        const { error, value } = orderBodySchema.validate(req.body, {
+            abortEarly: false,
+        })
+        if (error) {
+            return res.status(400).json({
+                success: false,
+                message: 'Ошибка валидации данных заказа',
+                details: error.details.map((d) => d.message),
+            })
+        }
+        const {
+            address,
+            payment,
+            phone,
+            total,
+            email,
+            items,
+            comment: rawComment,
+        } = value
         const basket: IProduct[] = []
         const products = await Product.find<IProduct>({})
         const userId = res.locals.user._id
-        const { address, payment, phone, total, email, items, comment } =
-            req.body
+
+        const comment =
+            typeof rawComment === 'string'
+                ? sanitizeComment(rawComment)
+                : rawComment
 
         items.forEach((id: Types.ObjectId) => {
             const product = products.find((p) => p._id.equals(id))
