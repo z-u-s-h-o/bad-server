@@ -24,7 +24,6 @@ export default function EditorInput({ onChange, value }: EditorInputProps) {
             if ($selection?.nodeName === 'A') {
                 document.execCommand('unlink')
             } else {
-                 
                 document.execCommand(
                     'createLink',
                     false,

@@ -2,11 +2,10 @@ import clsx from 'clsx'
 import { DetailedHTMLProps, InputHTMLAttributes } from 'react'
 import styles from './radio.module.scss'
 
-interface InputProps
-    extends DetailedHTMLProps<
-        InputHTMLAttributes<HTMLInputElement>,
-        HTMLInputElement
-    > {
+interface InputProps extends DetailedHTMLProps<
+    InputHTMLAttributes<HTMLInputElement>,
+    HTMLInputElement
+> {
     onChange: (evt: React.ChangeEvent<HTMLInputElement>) => void
     value: string
     label?: string

@@ -8,8 +8,9 @@ export interface CustomersValueType {
 }
 export interface CustomersDataFromServer extends ICustomerResult {}
 
-export interface CustomersData
-    extends ReturnType<typeof adapterCustomerFromServer> {}
+export interface CustomersData extends ReturnType<
+    typeof adapterCustomerFromServer
+> {}
 
 export interface CustomersDataList {
     key: string

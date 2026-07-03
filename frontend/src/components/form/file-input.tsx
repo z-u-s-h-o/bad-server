@@ -1,11 +1,10 @@
 import clsx from 'clsx'
 import React, { DetailedHTMLProps, InputHTMLAttributes, useId } from 'react'
 import styles from './file-input.module.scss'
-interface FileInputProps
-    extends DetailedHTMLProps<
-        InputHTMLAttributes<HTMLInputElement>,
-        HTMLInputElement
-    > {
+interface FileInputProps extends DetailedHTMLProps<
+    InputHTMLAttributes<HTMLInputElement>,
+    HTMLInputElement
+> {
     onChange: (evt: React.ChangeEvent<HTMLInputElement>) => void
     label?: string
     extraClass?: string

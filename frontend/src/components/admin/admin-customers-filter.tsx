@@ -18,7 +18,6 @@ export default function AdminFilterCustomers() {
     const filterCustomersOption = useSelector(
         customersSelector.selectFilterOption
     )
-     
 
     const handleFilter = (filters: Record<string, any>) => {
         dispatch(updateFilter({ ...filters }))
