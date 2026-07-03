@@ -117,7 +117,7 @@ export const getCustomers = async (
         const MAX_LIMIT = 10
 
         const rawLimit = Number(limit)
-        const safeLimit = isNaN(rawLimit)
+        const safeLimit = Number.isNaN(rawLimit)
             ? MAX_LIMIT
             : Math.min(rawLimit, MAX_LIMIT)
 
@@ -144,7 +144,6 @@ export const getCustomers = async (
         ])
 
         const totalUsers = await User.countDocuments(filters)
-        const totalPages = Math.ceil(totalUsers / Number(limit))
 
         res.status(200).json({
             customers: users,

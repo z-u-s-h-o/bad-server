@@ -7,6 +7,11 @@ import ConflictError from '../errors/conflict-error'
 import NotFoundError from '../errors/not-found-error'
 import Product from '../models/product'
 import movingFile from '../utils/movingFile'
+import {
+    objIdSchema,
+    productBodySchema,
+    productUpdateBodySchema,
+} from '../middlewares/validations'
 
 // GET /product
 const getProducts = async (req: Request, res: Response, next: NextFunction) => {
@@ -16,7 +21,7 @@ const getProducts = async (req: Request, res: Response, next: NextFunction) => {
         const MAX_LIMIT = 5
 
         const rawLimit = Number(limit)
-        const safeLimit = isNaN(rawLimit)
+        const safeLimit = Number.isNaN(rawLimit)
             ? MAX_LIMIT
             : Math.min(rawLimit, MAX_LIMIT)
 
@@ -33,7 +38,7 @@ const getProducts = async (req: Request, res: Response, next: NextFunction) => {
                 totalProducts,
                 totalPages,
                 currentPage: Number(page),
-                pageSize: safeLimit, // важно
+                pageSize: safeLimit,
             },
         })
     } catch (err) {
@@ -48,9 +53,18 @@ const createProduct = async (
     next: NextFunction
 ) => {
     try {
-        const { description, category, price, title, image } = req.body
+        const { error, value } = productBodySchema.validate(req.body, {
+            abortEarly: false,
+        })
+        if (error) {
+            return res.status(400).json({
+                success: false,
+                message: 'Ошибка валидации товара',
+                details: error.details.map((d) => d.message),
+            })
+        }
+        const { description, category, price, title, image } = value
 
-        // Переносим картинку из временной папки
         if (image) {
             movingFile(
                 image.fileName,
@@ -89,12 +103,33 @@ const updateProduct = async (
 ) => {
     try {
         const { productId } = req.params
-        const { image } = req.body
 
-        // Переносим картинку из временной папки
-        if (image) {
+        const idValidation = objIdSchema.validate(
+            { productId },
+            { abortEarly: false }
+        )
+        if (idValidation.error) {
+            return res.status(400).json({
+                success: false,
+                message: 'Ошибка валидации ID товара',
+                details: idValidation.error.details.map((d) => d.message),
+            })
+        }
+
+        const { error, value } = productUpdateBodySchema.validate(req.body, {
+            abortEarly: false,
+        })
+        if (error) {
+            return res.status(400).json({
+                success: false,
+                message: 'Ошибка валидации полей товара',
+                details: error.details.map((d) => d.message),
+            })
+        }
+
+        if (value.image) {
             movingFile(
-                image.fileName,
+                value.image.fileName,
                 join(__dirname, `../public/${process.env.UPLOAD_PATH_TEMP}`),
                 join(__dirname, `../public/${process.env.UPLOAD_PATH}`)
             )
@@ -104,13 +139,14 @@ const updateProduct = async (
             productId,
             {
                 $set: {
-                    ...req.body,
-                    price: req.body.price ? req.body.price : null,
-                    image: req.body.image ? req.body.image : undefined,
+                    ...value, // используем проверенные данные
+                    price: value.price !== undefined ? value.price : null,
+                    image: value.image !== undefined ? value.image : undefined,
                 },
             },
             { runValidators: true, new: true }
         ).orFail(() => new NotFoundError('Нет товара по заданному id'))
+
         return res.send(product)
     } catch (error) {
         if (error instanceof MongooseError.ValidationError) {
@@ -137,6 +173,18 @@ const deleteProduct = async (
 ) => {
     try {
         const { productId } = req.params
+        const idValidation = objIdSchema.validate(
+            { productId },
+            { abortEarly: false }
+        )
+        if (idValidation.error) {
+            return res.status(400).json({
+                success: false,
+                message: 'Ошибка валидации ID товара',
+                details: idValidation.error.details.map((d) => d.message),
+            })
+        }
+
         const product = await Product.findByIdAndDelete(productId).orFail(
             () => new NotFoundError('Нет товара по заданному id')
         )

@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import crypto from 'crypto'
 import {
     getCurrentUser,
     getCurrentUserRoles,
@@ -9,12 +10,11 @@ import {
     updateCurrentUser,
 } from '../controllers/auth'
 import auth from '../middlewares/auth'
-import crypto from 'crypto'
 import { authLimiter } from '../middlewares/rate-limit'
 
 const authRouter = Router()
 
-authRouter.get('/csrf-token', (req, res) => {
+authRouter.get('/csrf-token', (_req, res) => {
     const csrfToken = crypto.randomBytes(32).toString('hex')
 
     res.cookie('_csrf', csrfToken, {

@@ -5,6 +5,7 @@ import NotFoundError from '../errors/not-found-error'
 import Order, { IOrder } from '../models/order'
 import Product, { IProduct } from '../models/product'
 import User from '../models/user'
+import { orderBodySchema } from '../middlewares/validations'
 
 // eslint-disable-next-line max-len
 // GET /orders?page=2&limit=5&sort=totalAmount&order=desc&orderDateFrom=2024-07-01&orderDateTo=2024-08-01&status=delivering&totalAmountFrom=100&totalAmountTo=1000&search=%2B1
@@ -54,7 +55,7 @@ export const getOrders = async (
             ? 1
             : Math.max(1, Number(page))
 
-        const allowedQueryFields = new Set([
+        const allowedQueryFields = new Set<string>([
             'page',
             'limit',
             'sortField',
@@ -66,14 +67,15 @@ export const getOrders = async (
             'orderDateTo',
             'search',
         ])
-        for (const key of Object.keys(req.query)) {
-            if (!allowedQueryFields.has(key as string)) {
+
+        Object.entries(req.query).forEach(([key, _]) => {
+            if (!allowedQueryFields.has(key)) {
                 return res.status(400).json({
                     success: false,
                     message: `Недопустимое поле в запросе: ${key}`,
                 })
             }
-        }
+        })
 
         const filters: FilterQuery<Partial<IOrder>> = {}
 
@@ -111,7 +113,7 @@ export const getOrders = async (
 
         if (orderDateFrom) {
             const date = new Date(orderDateFrom as string)
-            if (!isNaN(date.getTime())) {
+            if (!Number.isNaN(date.getTime())) {
                 filters.createdAt = { ...filters.createdAt, $gte: date }
             } else {
                 return res.status(400).json({
@@ -122,7 +124,7 @@ export const getOrders = async (
         }
         if (orderDateTo) {
             const date = new Date(orderDateTo as string)
-            if (!isNaN(date.getTime())) {
+            if (!Number.isNaN(date.getTime())) {
                 filters.createdAt = { ...filters.createdAt, $lte: date }
             } else {
                 return res.status(400).json({
@@ -192,7 +194,7 @@ export const getOrders = async (
         aggregatePipeline.push(
             { $sort: sort },
             { $skip: (pageNum - 1) * limit },
-            { $limit: limit }, // используем тот же limit
+            { $limit: limit },
             {
                 $group: {
                     _id: '$_id',
@@ -356,16 +358,23 @@ export const getOrderCurrentUserByNumber = async (
     }
 }
 
-// POST /product
+// POST /order
 export const createOrder = async (
     req: Request,
     res: Response,
     next: NextFunction
 ) => {
     try {
-        const basket: IProduct[] = []
-        const products = await Product.find<IProduct>({})
-        const userId = res.locals.user._id
+        const { error, value } = orderBodySchema.validate(req.body, {
+            abortEarly: false,
+        })
+        if (error) {
+            return res.status(400).json({
+                success: false,
+                message: 'Ошибка валидации данных заказа',
+                details: error.details.map((d) => d.message),
+            })
+        }
         const {
             address,
             payment,
@@ -374,9 +383,12 @@ export const createOrder = async (
             email,
             items,
             comment: rawComment,
-        } = req.body
+        } = value
+        const basket: IProduct[] = []
+        const products = await Product.find<IProduct>({})
+        const userId = res.locals.user._id
 
-        let comment =
+        const comment =
             typeof rawComment === 'string'
                 ? sanitizeComment(rawComment)
                 : rawComment

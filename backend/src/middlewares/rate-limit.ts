@@ -5,7 +5,7 @@ export const authLimiter = rateLimit({
     max: 5,
     message: {
         success: false,
-        message: 'Слишком много запросов. Попробуйте позже.',
+        message: 'Превышен лимит запросов.',
     },
     standardHeaders: true,
     legacyHeaders: false,
